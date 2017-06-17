@@ -1,0 +1,493 @@
+@extends('header')
+
+@section('head')
+    @parent
+
+    <script src="{{ asset('js/jquery.datetimepicker.js') }}" type="text/javascript"></script>
+    <link href="{{ asset('css/jquery.datetimepicker.css') }}" rel="stylesheet" type="text/css"/>
+@stop
+
+@section('content')
+
+    <style type="text/css">
+
+        input.time-input {
+            width: 110px;
+            font-size: 14px !important;
+        }
+
+    </style>
+
+
+    @if ($errors->first('time_log'))
+        <div class="alert alert-danger">
+            <li>{{ trans('texts.task_errors') }}  </li>
+        </div>
+    @endif
+
+
+    {!! Former::open($url)->addClass('col-md-10 col-md-offset-1 warn-on-exit task-form')->method($method)->rules(array()) !!}
+    @if ($task)
+        {!! Former::populate($task) !!}
+        {!! Former::populateField('id', $task->public_id) !!}
+    @endif
+
+    <div style="display:none">
+        @if ($task)
+            {!! Former::text('id') !!}
+            {!! Former::text('invoice_id') !!}
+        @endif
+        {!! Former::text('action') !!}
+        {!! Former::text('time_log') !!}
+    </div>
+
+    <div class="row">
+        <div class="col-md-12">
+
+            <div class="panel panel-default">
+                <div class="panel-body">
+
+                    {!! Former::select('relation')->addOption('', '')->addGroupClass('relation-select') !!}
+                    {!! Former::textarea('description')->rows(3) !!}
+
+                    @if ($task)
+
+                        <div class="form-group simple-time" id="editDetailsLink">
+                            <label for="simple-time" class="control-label col-lg-4 col-sm-4">
+                            </label>
+                            <div class="col-lg-8 col-sm-8" style="padding-top: 10px">
+                                <p>{{ $task->getStartTime() }} -
+                                @if (Auth::user()->loginaccount->timezone_id)
+                                    {{ $timezone }}
+                                @else
+                                    {!! link_to('/settings/localization?focus=timezone_id', $timezone, ['target' => '_blank']) !!}
+                                @endif
+                                <p/>
+
+                                @if ($task->hasPreviousDuration())
+                                    {{ trans('texts.duration') . ': ' . Utils::formatTime($task->getDuration()) }}<br/>
+                                @endif
+
+                                @if (!$task->is_running)
+                                    <p>{!! Button::primary(trans('texts.edit_details'))->withAttributes(['onclick'=>'showTimeDetails()'])->small() !!}</p>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if ($task->is_running)
+                            <center>
+                                <div id="duration-text"
+                                     style="font-size: 36px; font-weight: 300; padding: 30px 0 20px 0"/>
+                            </center>
+                        @endif
+
+                    @else
+                        {!! Former::radios('task_type')->radios([
+                                trans('texts.timer') => array('name' => 'task_type', 'value' => 'timer'),
+                                trans('texts.manual') => array('name' => 'task_type', 'value' => 'manual'),
+                        ])->inline()->check('timer')->label('&nbsp;') !!}
+                    @endif
+
+                    <div class="form-group simple-time" id="datetime-details" style="display: none">
+                        <label for="simple-time" class="control-label col-lg-4 col-sm-4">
+                            {{ trans('texts.times') }}
+                        </label>
+                        <div class="col-lg-8 col-sm-8">
+
+                            <table class="table" style="margin-bottom: 0px !important;">
+                                <tbody data-bind="foreach: $root.time_log">
+                                <tr data-bind="event: { mouseover: showActions, mouseout: hideActions }">
+                                    <td style="padding: 0px 12px 12px 0 !important">
+                                        <div data-bind="css: { 'has-error': !isStartValid() }">
+                                            <input type="text"
+                                                   data-bind="dateTimePicker: startTime.pretty, event:{ change: $root.refresh }"
+                                                   class="form-control time-input"
+                                                   placeholder="{{ trans('texts.start_time') }}"/>
+                                        </div>
+                                    </td>
+                                    <td style="padding: 0px 12px 12px 0 !important">
+                                        <div data-bind="css: { 'has-error': !isEndValid() }">
+                                            <input type="text"
+                                                   data-bind="dateTimePicker: endTime.pretty, event:{ change: $root.refresh }"
+                                                   class="form-control time-input"
+                                                   placeholder="{{ trans('texts.end_time') }}"/>
+                                        </div>
+                                    </td>
+                                    <td style="width:100px">
+                                        <div data-bind="text: duration.pretty, visible: !isEmpty()"></div>
+                                        <a href="#"
+                                           data-bind="click: function() { setNow(), $root.refresh() }, visible: isEmpty()">{{ trans('texts.set_now') }}</a>
+                                    </td>
+                                    <td style="width:30px" class="td-icon">
+                                        <i style="width:12px;cursor:pointer"
+                                           data-bind="click: $root.removeItem, visible: actionsVisible() &amp;&amp; !isEmpty()"
+                                           class="fa fa-minus-circle redlink" title="Remove item"/>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <center class="buttons">
+        @if (Auth::user()->hasFeature(FEATURE_TASKS))
+            @if ($task && $task->is_running)
+                {!! Button::success(trans('texts.save'))->large()->appendIcon(Icon::create('floppy-disk'))->withAttributes(['id' => 'save-button']) !!}
+                {!! Button::primary(trans('texts.stop'))->large()->appendIcon(Icon::create('stop'))->withAttributes(['id' => 'stop-button']) !!}
+            @elseif ($task && $task->trashed())
+                {!! Button::normal(trans('texts.cancel'))->large()->asLinkTo(URL::to('/tasks'))->appendIcon(Icon::create('remove-circle')) !!}
+                {!! Button::success(trans('texts.restore'))->large()->withAttributes(['onclick' => 'submitAction("restore")'])->appendIcon(Icon::create('cloud-download')) !!}
+            @else
+                {!! Button::normal(trans('texts.cancel'))->large()->asLinkTo(URL::to('/tasks'))->appendIcon(Icon::create('remove-circle')) !!}
+                @if ($task)
+                    {!! Button::success(trans('texts.save'))->large()->appendIcon(Icon::create('floppy-disk'))->withAttributes(['id' => 'save-button']) !!}
+                    {!! Button::primary(trans('texts.resume'))->large()->appendIcon(Icon::create('play'))->withAttributes(['id' => 'resume-button']) !!}
+                    {!! DropdownButton::normal(trans('texts.more_actions'))
+                          ->withContents($actions)
+                          ->large()
+                          ->dropup() !!}
+                @else
+                    {!! Button::success(trans('texts.save'))->large()->appendIcon(Icon::create('floppy-disk'))->withAttributes(['id' => 'save-button']) !!}
+                    {!! Button::success(trans('texts.start'))->large()->appendIcon(Icon::create('play'))->withAttributes(['id' => 'start-button']) !!}
+                @endif
+            @endif
+        @else
+            {!! Button::normal(trans('texts.cancel'))->large()->asLinkTo(URL::to('/tasks'))->appendIcon(Icon::create('remove-circle')) !!}
+        @endif
+    </center>
+
+    {!! Former::close() !!}
+
+    <script type="text/javascript">
+
+        // Add moment support to the datetimepicker
+        Date.parseDate = function (input, format) {
+            return moment(input, format).toDate();
+        };
+        Date.prototype.dateFormat = function (format) {
+            return moment(this).format(format);
+        };
+
+        ko.bindingHandlers.dateTimePicker = {
+            init: function (element, valueAccessor, allBindingsAccessor) {
+                var value = ko.utils.unwrapObservable(valueAccessor());
+                // http://xdsoft.net/jqplugins/datetimepicker/
+                $(element).datetimepicker({
+                    lang: '{{ $appLanguage }}',
+                    lazyInit: true,
+                    validateOnBlur: false,
+                    step: 30,
+                    format: '{{ $datetimeFormat }}',
+                    formatDate: '{{ $company->getMomentDateFormat() }}',
+                    formatTime: '{{ $company->military_time ? 'H:mm' : 'h:mm A' }}',
+                    onSelectTime: function (current_time, $input) {
+                        current_time.setSeconds(0);
+                        $(element).datetimepicker({
+                            value: current_time
+                        });
+                    },
+                    dayOfWeekStart: {{ Session::get('start_of_week') }}
+                });
+
+                $(element).change(function () {
+                    var value = valueAccessor();
+                    value($(element).val());
+                })
+            },
+            update: function (element, valueAccessor) {
+                var value = ko.utils.unwrapObservable(valueAccessor());
+                if (value) $(element).val(value);
+            }
+        }
+
+        var relations = {!! $relations !!};
+        var timeLabels = {};
+        @foreach (['hour', 'minute', 'second'] as $period)
+                timeLabels['{{ $period }}'] = '{{ trans("texts.{$period}") }}';
+        timeLabels['{{ $period }}s'] = '{{ trans("texts.{$period}s") }}';
+        @endforeach
+
+        function tock(duration) {
+            var str = convertDurationToString(duration);
+            $('#duration-text').html(str);
+
+            setTimeout(function () {
+                tock(duration + 1);
+            }, 1000);
+        }
+
+        function convertDurationToString(duration) {
+            var data = [];
+            var periods = ['hour', 'minute', 'second'];
+            var parts = secondsToTime(duration);
+
+            for (var i = 0; i < periods.length; i++) {
+                var period = periods[i];
+                var letter = period.charAt(0);
+                var value = parts[letter];
+                if (!value) {
+                    continue;
+                }
+                period = value == 1 ? timeLabels[period] : timeLabels[period + 's'];
+                data.push(value + ' ' + period);
+            }
+
+            return data.length ? data.join(', ') : '0 ' + timeLabels['seconds'];
+        }
+
+        function submitAction(action, invoice_id) {
+            model.refresh();
+            var data = [];
+            for (var i = 0; i < model.time_log().length; i++) {
+                var timeLog = model.time_log()[i];
+                if (!timeLog.isEmpty()) {
+                    data.push([timeLog.startTime(), timeLog.endTime()]);
+                }
+            }
+            $('#invoice_id').val(invoice_id);
+            $('#time_log').val(JSON.stringify(data));
+            $('#action').val(action);
+            $('.task-form').submit();
+        }
+
+        function onDeleteClick() {
+            if (confirm('{!! trans("texts.are_you_sure") !!}')) {
+                submitAction('delete');
+            }
+        }
+
+        function showTimeDetails() {
+            $('#datetime-details').fadeIn();
+            $('#editDetailsLink').hide();
+        }
+
+        function TimeModel(data) {
+            var self = this;
+
+            var dateTimeFormat = '{{ $datetimeFormat }}';
+            var timezone = '{{ $timezone }}';
+
+            self.startTime = ko.observable(0);
+            self.endTime = ko.observable(0);
+            self.duration = ko.observable(0);
+            self.actionsVisible = ko.observable(false);
+            self.isStartValid = ko.observable(true);
+            self.isEndValid = ko.observable(true);
+
+            if (data) {
+                self.startTime(data[0]);
+                self.endTime(data[1]);
+            }
+            ;
+
+            self.isEmpty = ko.computed(function () {
+                return !self.startTime() && !self.endTime();
+            });
+
+            self.startTime.pretty = ko.computed({
+                read: function () {
+                    return self.startTime() ? moment.unix(self.startTime()).tz(timezone).format(dateTimeFormat) : '';
+                },
+                write: function (data) {
+                    self.startTime(moment(data, dateTimeFormat).tz(timezone).unix());
+                }
+            });
+
+            self.endTime.pretty = ko.computed({
+                read: function () {
+                    return self.endTime() ? moment.unix(self.endTime()).tz(timezone).format(dateTimeFormat) : '';
+                },
+                write: function (data) {
+                    self.endTime(moment(data, dateTimeFormat).tz(timezone).unix());
+                }
+            });
+
+            self.setNow = function () {
+                self.startTime(moment.tz(timezone).unix());
+                self.endTime(moment.tz(timezone).unix());
+            }
+
+            self.duration.pretty = ko.computed(function () {
+                var duration = false;
+                var start = self.startTime();
+                var end = self.endTime();
+
+                if (start && end) {
+                    var duration = end - start;
+                }
+
+                var duration = moment.duration(duration * 1000);
+                return Math.floor(duration.asHours()) + moment.utc(duration.asMilliseconds()).format(":mm:ss")
+            }, self);
+
+            /*
+             self.isEmpty = function() {
+             return false;
+             };
+             */
+
+            self.hideActions = function () {
+                self.actionsVisible(false);
+            };
+
+            self.showActions = function () {
+                self.actionsVisible(true);
+            };
+        }
+
+        function loadTimeLog(data) {
+            model.time_log.removeAll();
+            data = JSON.parse(data);
+            for (var i = 0; i < data.length; i++) {
+                model.time_log.push(new TimeModel(data[i]));
+            }
+            model.time_log.push(new TimeModel());
+        }
+
+        function ViewModel(data) {
+            var self = this;
+            self.time_log = ko.observableArray();
+
+            if (data) {
+                data = JSON.parse(data.time_log);
+                for (var i = 0; i < data.length; i++) {
+                    self.time_log.push(new TimeModel(data[i]));
+                }
+            }
+            self.time_log.push(new TimeModel());
+
+            self.removeItem = function (item) {
+                self.time_log.remove(item);
+                self.refresh();
+            }
+
+            self.removeItems = function () {
+                self.time_log.removeAll();
+                self.refresh();
+            }
+
+            self.refresh = function () {
+                var hasEmpty = false;
+                var lastTime = 0;
+                for (var i = 0; i < self.time_log().length; i++) {
+                    var timeLog = self.time_log()[i];
+                    if (timeLog.isEmpty()) {
+                        hasEmpty = true;
+                    }
+                }
+                if (!hasEmpty) {
+                    self.addItem();
+                }
+            }
+
+            self.showTimeOverlaps = function () {
+                var lastTime = 0;
+                for (var i = 0; i < self.time_log().length; i++) {
+                    var timeLog = self.time_log()[i];
+                    var startValid = true;
+                    var endValid = true;
+                    if (!timeLog.isEmpty()) {
+                        if (timeLog.startTime() < lastTime || timeLog.startTime() > timeLog.endTime()) {
+                            startValid = false;
+                        }
+                        if (timeLog.endTime() < Math.min(timeLog.startTime(), lastTime)) {
+                            endValid = false;
+                        }
+                        lastTime = Math.max(lastTime, timeLog.endTime());
+                    }
+                    timeLog.isStartValid(startValid);
+                    timeLog.isEndValid(endValid);
+                }
+            }
+
+            self.addItem = function () {
+                self.time_log.push(new TimeModel());
+            }
+        }
+
+        window.model = new ViewModel({!! $task !!});
+        ko.applyBindings(model);
+
+        $(function () {
+            var $relationSelect = $('select#relation');
+            for (var i = 0; i < relations.length; i++) {
+                var relation = relations[i];
+                var relationName = getRelationDisplayName(relation);
+                if (!relationName) {
+                    continue;
+                }
+                $relationSelect.append(new Option(relationName, relation.public_id));
+            }
+
+            if ({{ $relationPublicId ? 'true' : 'false' }}) {
+                $relationSelect.val({{ $relationPublicId }});
+            }
+
+            $relationSelect.combobox();
+
+            @if (!$task && !$relationPublicId)
+                $('.relation-select input.form-control').focus();
+            @else
+                $('#amount').focus();
+            @endif
+
+            $('input[type=radio]').change(function (event) {
+                var val = $(event.target).val();
+                if (val == 'timer') {
+                    $('#datetime-details').hide();
+                } else {
+                    $('#datetime-details').fadeIn();
+                }
+                setButtonsVisible();
+            })
+
+            function setButtonsVisible() {
+                //model.removeItems();
+                var val = $('input[name=task_type]:checked').val();
+                if (val == 'timer') {
+                    $('#start-button').show();
+                    $('#save-button').hide();
+                } else {
+                    $('#start-button').hide();
+                    $('#save-button').show();
+                }
+            }
+
+            setButtonsVisible();
+
+            $('#start-button').click(function () {
+                submitAction('start');
+            });
+            $('#save-button').click(function () {
+                submitAction('save');
+            });
+            $('#stop-button').click(function () {
+                submitAction('stop');
+            });
+            $('#resume-button').click(function () {
+                submitAction('resume');
+            });
+
+            @if ($task)
+                @if ($task->is_running)
+                    tock({{ $duration }});
+            @endif
+        @endif
+
+        @if ($errors->first('time_log'))
+            loadTimeLog({!! json_encode(Input::old('time_log')) !!});
+            model.showTimeOverlaps();
+            showTimeDetails();
+            @endif
+        });
+
+    </script>
+
+@stop

@@ -1,0 +1,370 @@
+<?php namespace App\Http\Controllers;
+
+use Auth;
+use Utils;
+use Response;
+use Input;
+use Validator;
+use App\Models\Invoice;
+use App\Models\Relation;
+use App\Models\Contact;
+use App\Models\Product;
+use App\Ninja\Repositories\RelationRepository;
+use App\Ninja\Repositories\PaymentRepository;
+use App\Ninja\Repositories\InvoiceRepository;
+use App\Ninja\Mailers\ContactMailer as Mailer;
+use App\Http\Requests\InvoiceRequest;
+use App\Http\Requests\CreateInvoiceAPIRequest;
+use App\Http\Requests\UpdateInvoiceAPIRequest;
+use App\Services\InvoiceService;
+use App\Services\PaymentService;
+
+class InvoiceApiController extends BaseAPIController
+{
+    protected $invoiceRepo;
+
+    protected $entityType = ENTITY_INVOICE;
+
+    public function __construct(InvoiceService $invoiceService, InvoiceRepository $invoiceRepo, RelationRepository $relationRepo, PaymentRepository $paymentRepo, Mailer $mailer, PaymentService $paymentService)
+    {
+        parent::__construct();
+
+        $this->invoiceRepo = $invoiceRepo;
+        $this->relationRepo = $relationRepo;
+        $this->paymentRepo = $paymentRepo;
+        $this->invoiceService = $invoiceService;
+        $this->mailer = $mailer;
+        $this->paymentService = $paymentService;
+    }
+
+    /**
+     * @SWG\Get(
+     *   path="/invoices",
+     *   summary="List of invoices",
+     *   tags={"invoice"},
+     *   @SWG\Response(
+     *     response=200,
+     *     description="A list with invoices",
+     *      @SWG\Schema(type="array", @SWG\Items(ref="#/definitions/Invoice"))
+     *   ),
+     *   @SWG\Response(
+     *     response="default",
+     *     description="an ""unexpected"" error"
+     *   )
+     * )
+     */
+    public function index()
+    {
+        $invoices = Invoice::scope()
+                        ->withTrashed()
+                        ->with('invoice_items', 'relation')
+                        ->orderBy('created_at', 'desc');
+
+        return $this->listResponse($invoices);
+    }
+
+        /**
+         * @SWG\Get(
+         *   path="/invoices/{invoice_id}",
+         *   summary="Individual Invoice",
+         *   tags={"invoice"},
+         *   @SWG\Response(
+         *     response=200,
+         *     description="A single invoice",
+         *      @SWG\Schema(type="object", @SWG\Items(ref="#/definitions/Invoice"))
+         *   ),
+         *   @SWG\Response(
+         *     response="default",
+         *     description="an ""unexpected"" error"
+         *   )
+         * )
+         */
+
+    public function show(InvoiceRequest $request)
+    {
+        return $this->itemResponse($request->entity());
+    }
+
+    /**
+     * @SWG\Post(
+     *   path="/invoices",
+     *   tags={"invoice"},
+     *   summary="Create an invoice",
+     *   @SWG\Parameter(
+     *     in="body",
+     *     name="body",
+     *     @SWG\Schema(ref="#/definitions/Invoice")
+     *   ),
+     *   @SWG\Response(
+     *     response=200,
+     *     description="New invoice",
+     *      @SWG\Schema(type="object", @SWG\Items(ref="#/definitions/Invoice"))
+     *   ),
+     *   @SWG\Response(
+     *     response="default",
+     *     description="an ""unexpected"" error"
+     *   )
+     * )
+     */
+    public function store(CreateInvoiceAPIRequest $request)
+    {
+        $data = Input::all();
+        $error = null;
+
+        if (isset($data['email'])) {
+            $email = $data['email'];
+            $relation = Relation::scope()->whereHas('contacts', function($query) use ($email) {
+                $query->where('email', '=', $email);
+            })->first();
+
+            if (!$relation) {
+                $validator = Validator::make(['email'=>$email], ['email' => 'email']);
+                if ($validator->fails()) {
+                    $messages = $validator->messages();
+                    return $messages->first();
+                }
+
+                $relationData = ['contact' => ['email' => $email]];
+                foreach ([
+                    'name',
+                    'address1',
+                    'address2',
+                    'city',
+                    'state',
+                    'postal_code',
+                    'country_id',
+                    'private_notes',
+                    'currency_code',
+                ] as $field) {
+                    if (isset($data[$field])) {
+                        $relationData[$field] = $data[$field];
+                    }
+                }
+                foreach ([
+                    'first_name',
+                    'last_name',
+                    'phone',
+                ] as $field) {
+                    if (isset($data[$field])) {
+                        $relationData['contact'][$field] = $data[$field];
+                    }
+                }
+
+                $relation = $this->relationRepo->save($relationData);
+            }
+        } else if (isset($data['relation_id'])) {
+            $relation = Relation::scope($data['relation_id'])->firstOrFail();
+        }
+
+        $data = self::prepareData($data, $relation);
+        $data['relation_id'] = $relation->id;
+        $invoice = $this->invoiceService->save($data);
+        $payment = false;
+
+        if (isset($data['auto_bill']) && boolval($data['auto_bill'])) {
+            $payment = $this->paymentService->autoBillInvoice($invoice);
+        } else if (isset($data['paid']) && $data['paid']) {
+            $payment = $this->paymentRepo->save([
+                'invoice_id' => $invoice->id,
+                'relation_id' => $relation->id,
+                'amount' => $data['paid']
+            ]);
+        }
+
+        if (isset($data['email_invoice']) && $data['email_invoice']) {
+            if ($payment) {
+                $this->mailer->sendPaymentConfirmation($payment);
+            } else {
+                $this->mailer->sendInvoice($invoice);
+            }
+        }
+
+        $invoice = Invoice::scope($invoice->public_id)
+                        ->with('relation', 'invoice_items', 'invitations')
+                        ->first();
+
+        if (isset($data['download_invoice']) && boolval($data['download_invoice'])) {
+            return $this->fileReponse($invoice->getFileName(), $invoice->getPDFString());
+        }
+
+        return $this->itemResponse($invoice);
+    }
+
+    private function prepareData($data, $relation)
+    {
+        $company = Auth::user()->loginaccount;
+        $company->loadLocalizationSettings($relation);
+
+        // set defaults for optional fields
+        $fields = [
+            'discount' => 0,
+            'is_amount_discount' => false,
+            'terms' => '',
+            'invoice_footer' => '',
+            'public_notes' => '',
+            'po_number' => '',
+            'invoice_design_id' => $company->invoice_design_id,
+            'invoice_items' => [],
+            'custom_value1' => 0,
+            'custom_value2' => 0,
+            'custom_taxes1' => false,
+            'custom_taxes2' => false,
+            'partial' => 0
+        ];
+
+        if (!isset($data['invoice_status_id']) || $data['invoice_status_id'] == 0) {
+            $data['invoice_status_id'] = INVOICE_STATUS_DRAFT;
+        }
+
+        if (!isset($data['invoice_date'])) {
+            $fields['invoice_date_sql'] = date_create()->format('Y-m-d');
+        }
+        if (!isset($data['due_date'])) {
+            $fields['due_date_sql'] = false;
+        }
+
+        foreach ($fields as $key => $val) {
+            if (!isset($data[$key])) {
+                $data[$key] = $val;
+            }
+        }
+
+        // initialize the line items
+        if (isset($data['product_key']) || isset($data['cost']) || isset($data['notes']) || isset($data['qty'])) {
+            $data['invoice_items'] = [self::prepareItem($data)];
+            // make sure the tax isn't applied twice (for the invoice and the line item)
+            unset($data['invoice_items'][0]['tax_name1']);
+            unset($data['invoice_items'][0]['tax_rate1']);
+            unset($data['invoice_items'][0]['tax_name2']);
+            unset($data['invoice_items'][0]['tax_rate2']);
+        } else {
+            foreach ($data['invoice_items'] as $index => $item) {
+                $data['invoice_items'][$index] = self::prepareItem($item);
+            }
+        }
+
+        return $data;
+    }
+
+    private function prepareItem($item)
+    {
+        // if only the product key is set we'll load the cost and notes
+        if (!empty($item['product_key']) && empty($item['cost']) && empty($item['notes'])) {
+            $product = Product::findProductByKey($item['product_key']);
+            if ($product) {
+                if (empty($item['cost'])) {
+                    $item['cost'] = $product->cost;
+                }
+                if (empty($item['notes'])) {
+                    $item['notes'] = $product->notes;
+                }
+            }
+        }
+
+        $fields = [
+            'cost' => 0,
+            'product_key' => '',
+            'notes' => '',
+            'qty' => 1
+        ];
+
+        foreach ($fields as $key => $val) {
+            if (!isset($item[$key])) {
+                $item[$key] = $val;
+            }
+        }
+
+        return $item;
+    }
+
+    public function emailInvoice(InvoiceRequest $request)
+    {
+        $invoice = $request->entity();
+
+        $this->mailer->sendInvoice($invoice);
+
+        $response = json_encode(RESULT_SUCCESS, JSON_PRETTY_PRINT);
+        $headers = Utils::getApiHeaders();
+        return Response::make($response, 200, $headers);
+    }
+
+        /**
+         * @SWG\Put(
+         *   path="/invoices",
+         *   tags={"invoice"},
+         *   summary="Update an invoice",
+         *   @SWG\Parameter(
+         *     in="body",
+         *     name="body",
+         *     @SWG\Schema(ref="#/definitions/Invoice")
+         *   ),
+         *   @SWG\Response(
+         *     response=200,
+         *     description="Update invoice",
+         *      @SWG\Schema(type="object", @SWG\Items(ref="#/definitions/Invoice"))
+         *   ),
+         *   @SWG\Response(
+         *     response="default",
+         *     description="an ""unexpected"" error"
+         *   )
+         * )
+         */
+    public function update(UpdateInvoiceAPIRequest $request, $publicId)
+    {
+        if ($request->action == ACTION_CONVERT) {
+            $quote = $request->entity();
+            $invoice = $this->invoiceRepo->cloneInvoice($quote, $quote->id);
+            return $this->itemResponse($invoice);
+        } elseif ($request->action) {
+            return $this->handleAction($request);
+        }
+
+        $data = $request->input();
+        $data['public_id'] = $publicId;
+        $this->invoiceService->save($data, $request->entity());
+
+        $invoice = Invoice::scope($publicId)
+                        ->with('relation', 'invoice_items', 'invitations')
+                        ->firstOrFail();
+
+        return $this->itemResponse($invoice);
+    }
+
+        /**
+         * @SWG\Delete(
+         *   path="/invoices",
+         *   tags={"invoice"},
+         *   summary="Delete an invoice",
+         *   @SWG\Parameter(
+         *     in="body",
+         *     name="body",
+         *     @SWG\Schema(ref="#/definitions/Invoice")
+         *   ),
+         *   @SWG\Response(
+         *     response=200,
+         *     description="Delete invoice",
+         *      @SWG\Schema(type="object", @SWG\Items(ref="#/definitions/Invoice"))
+         *   ),
+         *   @SWG\Response(
+         *     response="default",
+         *     description="an ""unexpected"" error"
+         *   )
+         * )
+         */
+
+    public function destroy(UpdateInvoiceAPIRequest $request)
+    {
+        $invoice = $request->entity();
+
+        $this->invoiceRepo->delete($invoice);
+
+        return $this->itemResponse($invoice);
+    }
+
+    public function download(InvoiceRequest $request)
+    {
+        $invoice = $request->entity();
+
+        return $this->fileReponse($invoice->getFileName(), $invoice->getPDFString());
+    }
+}

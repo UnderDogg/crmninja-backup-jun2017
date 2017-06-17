@@ -1,0 +1,27 @@
+<tr>
+    <td>{{ trans('texts.name') }}</td>
+    @if ($multiUser)
+        <td>{{ trans('texts.user') }}</td>
+    @endif
+    <td>{{ trans('texts.amount') }}</td>
+    <td>{{ trans('texts.balance') }}</td>
+    <td>{{ trans('texts.credit_date') }}</td>
+</tr>
+
+@foreach ($credits as $credit)
+    @if (!$credit->relation->is_deleted)
+        <tr>
+            <td>{{ $credit->relation->getDisplayName() }}</td>
+            @if ($multiUser)
+                <td>{{ $credit->user->getDisplayName() }}</td>
+            @endif
+            <td>{{ $company->formatMoney($credit->amount, $credit->relation) }}</td>
+            <td>{{ $company->formatMoney($credit->balance, $credit->relation) }}</td>
+            <td>{{ $credit->present()->credit_date }}</td>
+        </tr>
+    @endif
+@endforeach
+
+<tr>
+    <td></td>
+</tr>
