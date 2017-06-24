@@ -1,6 +1,13 @@
 @extends('master')
 
 
+
+@section('head_css')
+    <link href="{{ asset('css/built.css') }}?no_cache={{ NINJA_VERSION }}" rel="stylesheet" type="text/css"/>
+@stop
+
+
+
 @section('head')
 
     <link href="//fonts.googleapis.com/css?family=Roboto:400,700,900,100|Roboto+Slab:400,300,700&subset=latin,latin-ext"
@@ -151,7 +158,7 @@
             }
 
             if (force || NINJA.isRegistered) {
-                window.location = '{{ URL::to('logout') }}';
+                window.location = '{{ URL::to('logout') }}' + (force ? '?force_logout=true' : '');
             } else {
                 $('#logoutModal').modal('show');
             }
@@ -222,13 +229,20 @@
         }
 
         window.loadedSearchData = false;
-        function showSearch() {
+
+        function onSearchBlur() {
+            $('#search').typeahead('val', '');
+        }
+
+
+        function onSearchFocus() {
             $('#search').typeahead('val', '');
             $('#navbar-options').hide();
             $('#search-form').show();
             $('#search').focus();
 
             if (!window.loadedSearchData) {
+                window.loadedSearchData = true;
                 trackEvent('/activity', '/search');
                 var request = $.get('{{ URL::route('get_search_data') }}', function (data) {
                     $('#search').typeahead({
@@ -289,6 +303,12 @@
         }
 
         $(function () {
+            // auto-logout after 8 hours
+            window.setTimeout(function () {
+                window.location = '{{ URL::to('/logout?reason=inactive') }}';
+            }, {{ 1000 * env('AUTO_LOGOUT_SECONDS', (60 * 60 * 8)) }});
+
+            // auto-hide status alerts
             window.setTimeout(function () {
                 $(".alert-hide").fadeOut();
             }, 3000);
@@ -353,13 +373,81 @@
             });
             @endif
 
+
+
+
+
+
+
             // Focus the search input if the user clicks forward slash
-            $('body').keypress(function (event) {
-                if (event.which == 47 && !$('*:focus').length) {
-                    event.preventDefault();
-                    showSearch();
+
+            $('#search').focusin(onSearchFocus);
+            $('#search').blur(onSearchBlur);
+
+            // manage sidebar state
+            function setupSidebar(side) {
+                $("#" + side + "-menu-toggle").click(function (e) {
+                    e.preventDefault();
+                    $("#wrapper").toggleClass("toggled-" + side);
+
+                    var toggled = $("#wrapper").hasClass("toggled-" + side) ? '1' : '0';
+                    $.post('{{ url('save_sidebar_state') }}?show_' + side + '=' + toggled);
+
+                    if (isStorageSupported()) {
+                        localStorage.setItem('show_' + side + '_sidebar', toggled);
+                    }
+                });
+
+                if (isStorageSupported()) {
+                    var storage = localStorage.getItem('show_' + side + '_sidebar') || '0';
+                    var toggled = $("#wrapper").hasClass("toggled-" + side) ? '1' : '0';
+
+                    if (storage != toggled) {
+                        setTimeout(function () {
+                            $("#wrapper").toggleClass("toggled-" + side);
+                            $.post('{{ url('save_sidebar_state') }}?show_' + side + '=' + storage);
+                        }, 200);
+                    }
+                }
+            }
+
+            @if ( ! Utils::isTravis())
+                setupSidebar('left');
+            setupSidebar('right');
+            @endif
+
+            // auto select focused nav-tab
+            if (window.location.hash) {
+                setTimeout(function () {
+                    $('.nav-tabs a[href="' + window.location.hash + '"]').tab('show');
+                }, 1);
+            }
+
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+                if (isStorageSupported() && /\/settings\//.test(location.href)) {
+                    var target = $(e.target).attr("href") // activated tab
+                    if (history.pushState) {
+                        history.pushState(null, null, target);
+                    }
+                    if (isStorageSupported()) {
+                        localStorage.setItem('last:settings_page', location.href.replace(location.hash, ''));
+                    }
                 }
             });
+
+            $('[data-toggle="tooltip"]').tooltip();
+
+            // set timeout onDomReady
+            setTimeout(delayedFragmentTargetOffset, 500);
+
+            // add scroll offset to fragment target (if there is one)
+            function delayedFragmentTargetOffset() {
+                var offset = $(':target').offset();
+                if (offset) {
+                    var scrollto = offset.top - 180; // minus fixed header height
+                    $('html, body').animate({scrollTop: scrollto}, 0);
+                }
+            }
 
         });
 
@@ -369,158 +457,186 @@
 
 @section('body')
 
-    <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
-        <div class="container">
 
-            <div class="navbar-header">
-                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1">
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                <a href="{{ URL::to(NINJA_WEB_URL) }}" class='navbar-brand' target="_blank">
+    <nav class="navbar navbar-default navbar-fixed-top" role="navigation" style="height:60px;">
+
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a href="#" id="left-menu-toggle" class="menu-toggle" title="{{ trans('texts.toggle_navigation') }}">
+                <div class="navbar-brand">
+                    <i class="fa fa-bars hide-phone" style="width:32px;padding-top:2px;float:left"></i>
                     {{-- Per our license, please do not remove or modify this link. --}}
-                    <img src="{{ asset('images/invoiceninja-logo.png') }}"
-                         style="height:20px;width:auto;padding-right:10px"/>
-                </a>
-            </div>
+                    <img src="{{ asset('images/invoiceninja-logo.png') }}" width="193" height="25" style="float:left"/>
+                </div>
+            </a>
+        </div>
 
-            <div class="collapse navbar-collapse" id="navbar-collapse-1">
-                <ul class="nav navbar-nav" style="font-weight: bold">
-                    {!! Form::nav_link('dashboard', 'dashboard') !!}
-                    {!! Form::menu_link('relation') !!}
-                    {!! Form::menu_link('task') !!}
-                    {!! Form::menu_link('expense') !!}
-                    {!! Form::menu_link('invoice') !!}
-                    {!! Form::menu_link('payment') !!}
-                </ul>
-
-                <div id="navbar-options">
-                    <div class="navbar-form navbar-right">
-                        @if (Auth::check())
-                            @if (!Auth::user()->registered)
-                                {!! Button::success(trans('texts.sign_up'))->withAttributes(array('id' => 'signUpButton', 'data-toggle'=>'modal', 'data-target'=>'#signUpModal', 'style' => 'max-width:100px;;overflow:hidden'))->small() !!}
-                                &nbsp;
-                            @elseif (Utils::isNinjaProd() && (!Auth::user()->isPro() || Auth::user()->isTrial()))
-                                {!! Button::success(trans('texts.plan_upgrade'))->asLinkTo(url('/settings/company_management?upgrade=true'))->withAttributes(array('style' => 'max-width:100px;overflow:hidden'))->small() !!}
-                                &nbsp;
-                            @endif
-                        @endif
-
-                        <div class="btn-group user-dropdown">
-                            <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown">
-                                <div id="myCompanyButton" class="ellipsis nav-loginaccount-name"
-                                     style="max-width:{{ Utils::hasFeature(FEATURE_USERS) ? '130' : '100' }}px;">
-                                    @if (session(SESSION_USER_COMPANIES) && count(session(SESSION_USER_COMPANIES)))
-                                        {{ Auth::user()->loginaccount->getDisplayName() }}
-                                    @else
-                                        {{ Auth::user()->getDisplayName() }}
-                                    @endif
-                                    <span class="caret"></span>
-                                </div>
-            <span class="glyphicon glyphicon-user nav-loginaccount-icon" style="padding-left:0px"
-                  title="{{ Auth::user()->loginaccount->getDisplayName() }}"/>
-                            </button>
-                            <ul class="dropdown-menu user-companies">
-                                @if (session(SESSION_USER_COMPANIES))
-                                    @foreach (session(SESSION_USER_COMPANIES) as $item)
-                                        @if ($item->user_id == Auth::user()->id)
-                                            @include('user_company', [
-                                                'user_company_id' => $item->id,
-                                                'user_id' => $item->user_id,
-                                                'company_name' => $item->company_name,
-                                                'user_name' => $item->user_name,
-                                                'logo_url' => isset($item->logo_url) ? $item->logo_url : "",
-                                                'selected' => true,
-                                            ])
-                                        @endif
-                                    @endforeach
-                                    @foreach (session(SESSION_USER_COMPANIES) as $item)
-                                        @if ($item->user_id != Auth::user()->id)
-                                            @include('user_company', [
-                                                'user_company_id' => $item->id,
-                                                'user_id' => $item->user_id,
-                                                'company_name' => $item->company_name,
-                                                'user_name' => $item->user_name,
-                                                'logo_url' => isset($item->logo_url) ? $item->logo_url : "",
-                                                'selected' => false,
-                                            ])
-                                        @endif
-                                    @endforeach
-                                @else
-                                    @include('user_company', [
-                                        'company_name' => Auth::user()->loginaccount->name ?: trans('texts.untitled'),
-                                        'user_name' => Auth::user()->getDisplayName(),
-                                        'logo_url' => Auth::user()->loginaccount->getLogoURL(),
-                                        'selected' => true,
-                                    ])
-                                @endif
-                                <li class="divider"></li>
-                                @if (Utils::isAdmin())
-                                    @if (count(session(SESSION_USER_COMPANIES)) > 1)
-                                        <li>{!! link_to('/manage_companies', trans('texts.manage_companies')) !!}</li>
-                                    @elseif (!session(SESSION_USER_COMPANIES) || count(session(SESSION_USER_COMPANIES)) < 5)
-                                        <li>{!! link_to('/login?new_corporation=true', trans('texts.add_corporation')) !!}</li>
-                                    @endif
-                                @endif
-                                <li>{!! link_to('#', trans('texts.logout'), array('onclick'=>'logout()')) !!}</li>
-                            </ul>
-                        </div>
-
-                    </div>
-
-                    <ul class="nav navbar-nav navbar-right navbar-settings">
-                        <li class="dropdown">
-                            @if (Utils::isAdmin())
-                                <a href="{{ URL::to('/settings') }}" class="dropdown-toggle">
-                                    <span class="glyphicon glyphicon-cog" title="{{ trans('texts.settings') }}"/>
-                                </a>
-                                <ul class="dropdown-menu">
-                                    @foreach (\App\Models\Company::$basicSettings as $setting)
-                                        <li>{!! link_to('settings/' . $setting, uctrans("texts.{$setting}")) !!}</li>
-                                    @endforeach
-                                    <li>
-                                        <a href="{{ url('settings/' . COMPANY_INVOICE_SETTINGS) }}">{!! uctrans('texts.advanced_settings') . Utils::getProLabel(COMPANY_ADVANCED_SETTINGS) !!}</a>
-                                    </li>
-                                </ul>
-                            @else
-                                <a href="{{ URL::to('/settings/user_details') }}" class="dropdown-toggle">
-                                    <span class="glyphicon glyphicon-user" title="{{ trans('texts.settings') }}"/>
-                                </a>
-                            @endif
-                        </li>
-                    </ul>
+        <a id="right-menu-toggle" class="menu-toggle hide-phone pull-right" title="{{ trans('texts.toggle_history') }}"
+           style="cursor:pointer">
+            <div class="fa fa-bars"></div>
+        </a>
 
 
-                    <ul class="nav navbar-nav navbar-right navbar-search">
-                        <li class="dropdown">
-                            <a href="#" onclick="showSearch()">
-                                <span class="glyphicon glyphicon-search" title="{{ trans('texts.search') }}"/>
+        <div class="collapse navbar-collapse" id="navbar-collapse-1">
+            <ul class="nav navbar-nav" style="font-weight: bold">
+                {!! Form::nav_link('dashboard', 'dashboard') !!}
+                {!! Form::menu_link('relation') !!}
+                {!! Form::menu_link('task') !!}
+                {!! Form::menu_link('expense') !!}
+                {!! Form::menu_link('invoice') !!}
+                {!! Form::menu_link('payment') !!}
+            </ul>
+
+            <div id="navbar-options">
+
+                <ul class="nav navbar-nav navbar-right navbar-notifications">
+                    <li class="dropdown">
+                        @if (Utils::isAdmin())
+                            <a href="{{ URL::to('/settings') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-cog" title="{{ trans('texts.settings') }}"/>
                             </a>
                             <ul class="dropdown-menu">
-                                @if (count(Session::get(RECENTLY_VIEWED)) == 0)
-                                    <li><a href="#">{{ trans('texts.no_items') }}</a></li>
-                                @else
-                                    @foreach (Session::get(RECENTLY_VIEWED) as $link)
-                                        @if (property_exists($link, 'companyId') && $link->companyId == Auth::user()->company_id)
-                                            <li><a href="{{ $link->url }}">{{ $link->name }}</a></li>
-                                        @endif
-                                    @endforeach
-                                @endif
+                                @foreach (\App\Models\Company::$basicSettings as $setting)
+                                    <li>{!! link_to('settings/' . $setting, uctrans("texts.{$setting}")) !!}</li>
+                                @endforeach
+                                <li>
+                                    <a href="{{ url('settings/' . COMPANY_INVOICE_SETTINGS) }}">{!! uctrans('texts.advanced_settings') . Utils::getProLabel(COMPANY_ADVANCED_SETTINGS) !!}</a>
+                                </li>
                             </ul>
-                        </li>
-                    </ul>
-                </div>
+                        @else
+                            <a href="{{ URL::to('/settings/user_details') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-user" title="{{ trans('texts.settings') }}"/>
+                            </a>
+                        @endif
+                    </li>
+                </ul>
 
-                <form id="search-form" class="navbar-form navbar-right" role="search" style="display:none">
-                    <div class="form-group">
-                        <input type="text" id="search" style="width: 240px;padding-top:0px;padding-bottom:0px"
-                               class="form-control"
-                               placeholder="{{ trans('texts.search') . ': ' . trans('texts.search_hotkey')}}">
+
+                <ul class="nav navbar-nav navbar-right navbar-settings">
+                    <li class="dropdown">
+                        @if (Utils::isAdmin())
+                            <a href="{{ URL::to('/settings') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-cog" title="{{ trans('texts.settings') }}"/>
+                            </a>
+                            <ul class="dropdown-menu">
+                                @foreach (\App\Models\Company::$basicSettings as $setting)
+                                    <li>{!! link_to('settings/' . $setting, uctrans("texts.{$setting}")) !!}</li>
+                                @endforeach
+                                <li>
+                                    <a href="{{ url('settings/' . COMPANY_INVOICE_SETTINGS) }}">{!! uctrans('texts.advanced_settings') . Utils::getProLabel(COMPANY_ADVANCED_SETTINGS) !!}</a>
+                                </li>
+                            </ul>
+                        @else
+                            <a href="{{ URL::to('/settings/user_details') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-user" title="{{ trans('texts.settings') }}"/>
+                            </a>
+                        @endif
+                    </li>
+                </ul>
+
+
+                <ul class="nav navbar-nav navbar-right navbar-email">
+                    <li class="dropdown">
+                        @if (Utils::isAdmin())
+                            <a href="{{ URL::to('/settings') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-cog" title="{{ trans('texts.settings') }}"/>
+                            </a>
+                            <ul class="dropdown-menu">
+                                @foreach (\App\Models\Company::$basicSettings as $setting)
+                                    <li>{!! link_to('settings/' . $setting, uctrans("texts.{$setting}")) !!}</li>
+                                @endforeach
+                                <li>
+                                    <a href="{{ url('settings/' . COMPANY_INVOICE_SETTINGS) }}">{!! uctrans('texts.advanced_settings') . Utils::getProLabel(COMPANY_ADVANCED_SETTINGS) !!}</a>
+                                </li>
+                            </ul>
+                        @else
+                            <a href="{{ URL::to('/settings/user_details') }}" class="dropdown-toggle">
+                                <span class="glyphicon glyphicon-user" title="{{ trans('texts.settings') }}"/>
+                            </a>
+                        @endif
+                    </li>
+                </ul>
+
+                <div class="navbar-form navbar-right">
+                    @if (Auth::check())
+                        @if (!Auth::user()->registered)
+                            {!! Button::success(trans('texts.sign_up'))->withAttributes(array('id' => 'signUpButton', 'data-toggle'=>'modal', 'data-target'=>'#signUpModal', 'style' => 'max-width:100px;;overflow:hidden'))->small() !!}
+                            &nbsp;
+                        @elseif (Utils::isNinjaProd() && (!Auth::user()->isPro() || Auth::user()->isTrial()))
+                            {!! Button::success(trans('texts.plan_upgrade'))->withAttributes(array('onclick' => 'showUpgradeModal()', 'style' => 'max-width:100px;overflow:hidden'))->small() !!}
+                            &nbsp;
+                        @endif
+                    @endif
+
+                    <div class="btn-group user-dropdown">
+
+
+                        <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown">
+                            <div id="myCompanyButton" class="ellipsis nav-loginaccount-name"
+                                 style="max-width:{{ Utils::hasFeature(FEATURE_USERS) ? '130' : '100' }}px;">
+                                @if (session(SESSION_USER_COMPANIES) && count(session(SESSION_USER_COMPANIES)))
+                                    {{ Auth::user()->loginaccount->name }}
+                                @else
+                                    <i class="glyphicon glyphicon-user nav-loginaccount-icon" style="padding-left:0px"
+                                       title="{{ Auth::user()->loginaccount->name }}"/></i>
+                                    {{ Auth::user()->loginaccount->name }}
+                                @endif
+                                <span class="caret"></span>
+                            </div>
+
+                        </button>
+                        <ul class="dropdown-menu user-companies">
+                            @if (session(SESSION_USER_COMPANIES))
+                                @foreach (session(SESSION_USER_COMPANIES) as $item)
+                                    @if ($item->user_id == Auth::user()->id)
+                                        @include('user_company', [
+                                            'user_company_id' => $item->id,
+                                            'user_id' => $item->user_id,
+                                            'company_name' => $item->company_name,
+                                            'user_name' => $item->user_name,
+                                            'logo_url' => isset($item->logo_url) ? $item->logo_url : "",
+                                            'selected' => true,
+                                        ])
+                                    @endif
+                                @endforeach
+                                @foreach (session(SESSION_USER_COMPANIES) as $item)
+                                    @if ($item->user_id != Auth::user()->id)
+                                        @include('user_company', [
+                                            'user_company_id' => $item->id,
+                                            'user_id' => $item->user_id,
+                                            'company_name' => $item->company_name,
+                                            'user_name' => $item->user_name,
+                                            'logo_url' => isset($item->logo_url) ? $item->logo_url : "",
+                                            'selected' => false,
+                                        ])
+                                    @endif
+                                @endforeach
+                            @else
+                                @include('user_company', [
+                                    'company_name' => Auth::user()->loginaccount->name ?: trans('texts.untitled'),
+                                    'user_name' => Auth::user()->getDisplayName(),
+                                    'logo_url' => Auth::user()->loginaccount->getLogoURL(),
+                                    'selected' => true,
+                                ])
+                            @endif
+                            <li class="divider"></li>
+                            @if (Utils::isAdmin())
+                                @if (count(session(SESSION_USER_COMPANIES)) > 1)
+                                    <li>{!! link_to('/manage_companies', trans('texts.manage_companies')) !!}</li>
+                                @elseif (!session(SESSION_USER_COMPANIES) || count(session(SESSION_USER_COMPANIES)) < 5)
+                                    <li>{!! link_to('/login?new_company=true', trans('texts.add_company')) !!}</li>
+                                @endif
+                            @endif
+                            <li>{!! link_to('#', trans('texts.logout'), array('onclick'=>'logout()')) !!}</li>
+                        </ul>
                     </div>
-                </form>
 
+                </div>
 
             </div><!-- /.navbar-collapse -->
 

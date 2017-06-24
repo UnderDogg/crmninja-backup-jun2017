@@ -132,7 +132,7 @@
                                 <td>
                                     <small>{{ trans('texts.balance') }}</small>
                                 </td>
-                                <td style="text-align: right">{{ Utils::formatMoney($totalexpense, $customer->getCurrencyId()) }}</td>
+                                <td style="text-align: right"></td>
                             </tr>
                         </table>
                     </h3>

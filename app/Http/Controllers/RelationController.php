@@ -117,19 +117,20 @@ class RelationController extends BaseController
             $actionLinks[] = ['label' => trans('texts.enter_expense'), 'url' => URL::to('/expenses/create/0/'.$relation->public_id)];
         }
 
-        $token = $relation->getGatewayToken();
+        //$token = $relation->getGatewayToken();
+        //$customer->getTotalCredit()
 
         $data = [
             'actionLinks' => $actionLinks,
             'showBreadcrumbs' => false,
             'relation' => $relation,
-            'credit' => $relation->getTotalCredit(),
+            'credit' => 0,
             'title' => trans('texts.view_relation'),
-            'hasRecurringInvoices' => Invoice::scope()->where('is_recurring', '=', true)->whereRelationId($relation->id)->count() > 0,
-            'hasQuotes' => Invoice::scope()->invoiceType(INVOICE_TYPE_QUOTE)->whereRelationId($relation->id)->count() > 0,
-            'hasTasks' => Task::scope()->whereRelationId($relation->id)->count() > 0,
-            'gatewayLink' => $token ? $token->gatewayLink() : false,
-            'gatewayName' => $token ? $token->gatewayName() : false,
+            'hasRecurringInvoices' => Invoice::scope()->where('is_recurring', '=', true)->whereCustomerId($relation->id)->count() > 0,
+            'hasQuotes' => Invoice::scope()->invoiceType(INVOICE_TYPE_QUOTE)->whereCustomerId($relation->id)->count() > 0,
+            'hasTasks' => Task::scope()->whereCustomerId($relation->id)->count() > 0,
+            'gatewayLink' => false,
+            'gatewayName' => false,
         ];
 
         return View::make('relations.show', $data);

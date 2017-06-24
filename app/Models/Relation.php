@@ -388,13 +388,13 @@ class Relation extends EntityModel
      */
     public function getGatewayToken()
     {
-        $accountGateway = $this->loginaccount->getGatewayByType(GATEWAY_TYPE_TOKEN);
+        //$accountGateway = $this->loginaccount->getGatewayByType(GATEWAY_TYPE_TOKEN);
 
-        if (!$accountGateway) {
+        //if (!$accountGateway) {
             return false;
-        }
+        //}
 
-        return AccountGatewayToken::relationAndGateway($this->id, $accountGateway->id)->first();
+        //return AccountGatewayToken::relationAndGateway($this->id, $accountGateway->id)->first();
     }
 
     /**

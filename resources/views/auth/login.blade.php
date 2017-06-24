@@ -95,10 +95,10 @@
                     ->withAttributes(['id' => 'loginButton'])
                     ->large()->submit()->block() !!}</p>
 
-            @if (Input::get('new_corporation') && Utils::allowNewCompanies())
+            @if (Input::get('new_company') && Utils::allowNewCompanies())
                 {!! Former::hidden('link_companies')->value('true') !!}
                 <center><p>- {{ trans('texts.or') }} -</p></center>
-                <p>{!! Button::primary(trans('texts.new_corporation'))->asLinkTo(URL::to('/invoice_now?new_corporation=true&sign_up=true'))->large()->submit()->block() !!}</p>
+                <p>{!! Button::primary(trans('texts.new_company'))->asLinkTo(URL::to('/invoice_now?new_company=true&sign_up=true'))->large()->submit()->block() !!}</p>
                 <br/>
             @elseif (Utils::isOAuthEnabled())
                 <center><p>- {{ trans('texts.or') }} -</p></center>

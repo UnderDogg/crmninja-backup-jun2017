@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html lang="{{App::getLocale()}}">
 <head>
+    <meta charset="utf-8">
     @if (isset($company) && $company instanceof \App\Models\Company && $company->hasFeature(FEATURE_WHITE_LABEL))
         <title>{{ trans('texts.customer_portal') }}</title>
     @else
         <title>{{ isset($title) ? ($title . ' | Invoice Ninja') : ('Invoice Ninja | ' . trans('texts.app_title')) }}</title>
         <meta name="description" content="{{ isset($description) ? $description : trans('texts.app_description') }}"/>
         <link href="{{ asset('favicon-v2.png') }}" rel="shortcut icon" type="image/png">
-        @endif
+    @endif
 
-                <!-- Source: https://github.com/invoiceninja/invoiceninja -->
-        <!-- Version: {{ NINJA_VERSION }} -->
 
-        <meta charset="utf-8">
         <meta property="og:site_name" content="Invoice Ninja"/>
         <meta property="og:url" content="{{ SITE_URL }}"/>
         <meta property="og:title" content="Invoice Ninja"/>
@@ -42,8 +40,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
-        <meta name="msapplication-config" content="none"/>
+
         <link rel="canonical" href="{{ NINJA_APP_URL }}/{{ Request::path() }}"/>
+
+    @yield('head_css')
 
         <script src="{{ asset('built.js') }}?no_cache={{ NINJA_VERSION }}" type="text/javascript"></script>
 
@@ -97,7 +97,8 @@
                     confirmButtonText: "{!! trans("texts.yes") !!}",
                     confirmButtonColor: "#DD6B55",
                     showCancelButton: true,
-                    closeOnConfirm: false
+                    closeOnConfirm: false,
+                    allowOutsideClick: true,
                 }, function () {
                     success();
                     swal.close();
@@ -107,12 +108,13 @@
             /* Set the defaults for DataTables initialisation */
             $.extend(true, $.fn.dataTable.defaults, {
                 "bSortClasses": false,
-                "sDom": "t<'row-fluid'<'span6'i><'span6'p>>l",
+            "sDom": "t<'row-fluid'<'span6 dt-left'i><'span6 dt-right'p>>l",
                 "sPaginationType": "bootstrap",
                 "bInfo": true,
                 "oLanguage": {
                     'sEmptyTable': "{{ trans('texts.empty_table') }}",
                     'sLengthMenu': '_MENU_ {{ trans('texts.rows') }}',
+                    'sInfo': "{{ trans('texts.datatable_info', ['start' => '_START_', 'end' => '_END_', 'total' => '_TOTAL_']) }}",
                     'sSearch': ''
                 }
             });
@@ -181,7 +183,7 @@
 
 <body class="body">
 
-@if (isset($_ENV['TAG_MANAGER_KEY']) && $_ENV['TAG_MANAGER_KEY'])
+@if (Utils::isNinjaProd() && isset($_ENV['TAG_MANAGER_KEY']) && $_ENV['TAG_MANAGER_KEY'])
         <!-- Google Tag Manager -->
 <noscript>
     <iframe src="//www.googletagmanager.com/ns.html?id={{ $_ENV['TAG_MANAGER_KEY'] }}"
@@ -205,7 +207,7 @@
     function trackEvent(category, action) {
     }
 </script>
-@elseif (isset($_ENV['ANALYTICS_KEY']) && $_ENV['ANALYTICS_KEY'])
+@elseif (Utils::isNinjaProd() && isset($_ENV['ANALYTICS_KEY']) && $_ENV['ANALYTICS_KEY'])
     <script>
         (function (i, s, o, g, r, a, m) {
             i['GoogleAnalyticsObject'] = r;
@@ -243,14 +245,11 @@
             NINJA.formIsChanged = true;
         });
 
-        @if (Session::has('trackEventCategory') && Session::has('trackEventAction'))
-            @if (Session::get('trackEventAction') === '/buy_pro_plan')
-                window._fbq.push(['track', '{{ env('FACEBOOK_PIXEL_BUY_PRO') }}', {
-            'value': '{{ session('trackEventAmount') }}',
-            'currency': 'USD'
-        }]);
-        @endif
-        @endif
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
 
         @if (Session::has('onReady'))
         {{ Session::get('onReady') }}

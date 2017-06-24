@@ -117,19 +117,20 @@ class CustomerController extends BaseController
             $actionLinks[] = ['label' => trans('texts.enter_expense'), 'url' => URL::to('/expenses/create/0/'.$customer->public_id)];
         }
 
-        $token = $customer->getGatewayToken();
+        //$token = $customer->getGatewayToken();
+        //$customer->getTotalCredit()
 
         $data = [
             'actionLinks' => $actionLinks,
             'showBreadcrumbs' => false,
             'customer' => $customer,
-            'credit' => $customer->getTotalCredit(),
+            'credit' => 0,
             'title' => trans('texts.view_customer'),
             'hasRecurringInvoices' => Invoice::scope()->where('is_recurring', '=', true)->whereCustomerId($customer->id)->count() > 0,
             'hasQuotes' => Invoice::scope()->invoiceType(INVOICE_TYPE_QUOTE)->whereCustomerId($customer->id)->count() > 0,
             'hasTasks' => Task::scope()->whereCustomerId($customer->id)->count() > 0,
-            'gatewayLink' => $token ? $token->gatewayLink() : false,
-            'gatewayName' => $token ? $token->gatewayName() : false,
+            'gatewayLink' => false,
+            'gatewayName' => false,
         ];
 
         return View::make('customers.show', $data);

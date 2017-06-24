@@ -107,13 +107,6 @@
                         {{ $relation->country->name }}<br/>
                     @endif
 
-                    @if ($relation->loginaccount->custom_relation_label1 && $relation->custom_value1)
-                        {{ $relation->loginaccount->custom_relation_label1 . ': ' . $relation->custom_value1 }}<br/>
-                    @endif
-                    @if ($relation->loginaccount->custom_relation_label2 && $relation->custom_value2)
-                        {{ $relation->loginaccount->custom_relation_label2 . ': ' . $relation->custom_value2 }}<br/>
-                    @endif
-
                     @if ($relation->work_phone)
                         <i class="fa fa-phone" style="width: 20px"></i>{{ $relation->work_phone }}
                     @endif
@@ -153,11 +146,7 @@
                         @if ($contact->phone)
                             <i class="fa fa-phone" style="width: 20px"></i>{{ $contact->phone }}<br/>
                         @endif
-                        @if ($relation->loginaccount->enable_relation_portal)
-                            <i class="fa fa-dashboard" style="width: 20px"></i><a href="{{ $contact->link }}"
-                                                                                  target="_blank">{{ trans('texts.view_relation_portal') }}</a>
-                            <br/>
-                        @endif
+
                     @endforeach
                 </div>
 
@@ -168,20 +157,20 @@
                                 <td>
                                     <small>{{ trans('texts.paid_to_date') }}</small>
                                 </td>
-                                <td style="text-align: right">{{ Utils::formatMoney($relation->paid_to_date, $relation->getCurrencyId()) }}</td>
+                                <td style="text-align: right"></td>
                             </tr>
                             <tr>
                                 <td>
                                     <small>{{ trans('texts.balance') }}</small>
                                 </td>
-                                <td style="text-align: right">{{ Utils::formatMoney($relation->balance, $relation->getCurrencyId()) }}</td>
+                                <td style="text-align: right"></td>
                             </tr>
                             @if ($credit > 0)
                                 <tr>
                                     <td>
                                         <small>{{ trans('texts.credit') }}</small>
                                     </td>
-                                    <td style="text-align: right">{{ Utils::formatMoney($credit, $relation->getCurrencyId()) }}</td>
+                                    <td style="text-align: right"></td>
                                 </tr>
                             @endif
                         </table>
