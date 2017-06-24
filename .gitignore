@@ -1,5 +1,5 @@
 # Please try and keep this file organized by alphabetical order. Single files first, then directories.
-/composer.lock
+composer.lock
 *.DS_Store
 .env
 Homestead.yaml

@@ -14,7 +14,7 @@
             <div class="panel panel-default">
                 <div class="panel-body">
 
-                    {!! Former::select('relation')->addOption('', '')->addGroupClass('relation-select') !!}
+                    {!! Former::select('relation')->addOption('', '')->addGroupClass('vendor-select') !!}
                     {!! Former::text('amount') !!}
                     {!! Former::text('credit_date')
                                 ->data_date_format(Session::get(SESSION_DATE_PICKER_FORMAT, DEFAULT_DATE_PICKER_FORMAT))
@@ -63,7 +63,7 @@
             $('#credit_date').datepicker('update', new Date());
 
             @if (!$relationPublicId)
-                $('.relation-select input.form-control').focus();
+                $('.vendor-select input.form-control').focus();
             @else
                 $('#amount').focus();
             @endif

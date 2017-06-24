@@ -47,7 +47,7 @@
             <div class="panel panel-default">
                 <div class="panel-body">
 
-                    {!! Former::select('relation')->addOption('', '')->addGroupClass('relation-select') !!}
+                    {!! Former::select('Customer')->addOption('', '')->addGroupClass('customer-select') !!}
                     {!! Former::textarea('description')->rows(3) !!}
 
                     @if ($task)
@@ -433,7 +433,7 @@
             $relationSelect.combobox();
 
             @if (!$task && !$relationPublicId)
-                $('.relation-select input.form-control').focus();
+                $('.customer-select input.form-control').focus();
             @else
                 $('#amount').focus();
             @endif

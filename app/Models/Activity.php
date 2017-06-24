@@ -99,6 +99,7 @@ class Activity extends Eloquent
         $isSystem = $this->is_system;
 
         /** @var Task $task */
+        //$this->adjustment ? $company->formatMoney($this->adjustment, $this) :
         $task = $this->task;
 
         $data = [
@@ -109,7 +110,7 @@ class Activity extends Eloquent
             'contact' => $contactId ? $relation->getDisplayName() : $user->getDisplayName(),
             'payment' => $payment ? $payment->transaction_reference : null,
             'payment_amount' => $payment ? $company->formatMoney($payment->amount, $payment) : null,
-            'adjustment' => $this->adjustment ? $company->formatMoney($this->adjustment, $this) : null,
+            'adjustment' => null,
             'credit' => $credit ? $company->formatMoney($credit->amount, $relation) : null,
             'task' => $task ? link_to($task->getRoute(), substr($task->description, 0, 30) . '...') : null,
         ];

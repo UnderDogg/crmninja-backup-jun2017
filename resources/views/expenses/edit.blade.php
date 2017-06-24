@@ -65,8 +65,8 @@
                     {!! Former::select('relation_id')
                             ->addOption('', '')
                             ->label(trans('texts.relation'))
-                            ->data_bind('combobox: relation_id')
-                            ->addGroupClass('relation-select') !!}
+                            ->data_bind('combobox: vendor_id')
+                            ->addGroupClass('vendor-select') !!}
 
                     @if (!$expense || ($expense && !$expense->invoice_id && !$expense->relation_id))
                         {!! Former::checkbox('should_be_invoiced')

@@ -14,13 +14,7 @@
                             {{ trans('texts.total_revenue') }}
                         </div>
                         <div class="in-bold">
-                            @if (count($paidToDate))
-                                @foreach ($paidToDate as $item)
-                                    {{ Utils::formatMoney($item->value, $item->currency_id) }}<br/>
-                                @endforeach
-                            @else
-                                {{ Utils::formatMoney(0) }}
-                            @endif
+                            &nbsp;
                         </div>
                     </div>
                 </div>
@@ -36,13 +30,7 @@
                             {{ trans('texts.average_invoice') }}
                         </div>
                         <div class="in-bold">
-                            @if (count($averageInvoice))
-                                @foreach ($averageInvoice as $item)
-                                    {{ Utils::formatMoney($item->invoice_avg, $item->currency_id) }}<br/>
-                                @endforeach
-                            @else
-                                {{ Utils::formatMoney(0) }}
-                            @endif
+                            &nbsp;
                         </div>
                     </div>
                 </div>
@@ -58,13 +46,7 @@
                             {{ trans('texts.outstanding') }}
                         </div>
                         <div class="in-bold">
-                            @if (count($balances))
-                                @foreach ($balances as $item)
-                                    {{ Utils::formatMoney($item->value, $item->currency_id) }}<br/>
-                                @endforeach
-                            @else
-                                {{ Utils::formatMoney(0) }}
-                            @endif
+                            &nbsp;
                         </div>
                     </div>
                 </div>
@@ -125,7 +107,7 @@
                                     <td>{{ trim($payment->relation_name) ?: (trim($payment->first_name . ' ' . $payment->last_name) ?: $payment->email) }}</td>
                                     @endcan
                                     <td>{{ Utils::fromSqlDate($payment->payment_date) }}</td>
-                                    <td>{{ Utils::formatMoney($payment->amount, $payment->currency_id ?: ($company->currency_id ?: DEFAULT_CURRENCY)) }}</td>
+                                    <td>&nbsp;</td>
                             </tr>
                         @endforeach
                         </tbody>
@@ -162,7 +144,7 @@
                                         <td>{{ trim($invoice->relation_name) ?: (trim($invoice->first_name . ' ' . $invoice->last_name) ?: $invoice->email) }}</td>
                                         @endcan
                                         <td>{{ Utils::fromSqlDate($invoice->due_date) }}</td>
-                                        <td>{{ Utils::formatMoney($invoice->balance, $invoice->currency_id ?: ($company->currency_id ?: DEFAULT_CURRENCY)) }}</td>
+                                        <td>&nbsp;</td>
                                 </tr>
                             @endif
                         @endforeach
@@ -197,7 +179,7 @@
                                         <td>{{ trim($invoice->relation_name) ?: (trim($invoice->first_name . ' ' . $invoice->last_name) ?: $invoice->email) }}</td>
                                         @endcan
                                         <td>{{ Utils::fromSqlDate($invoice->due_date) }}</td>
-                                        <td>{{ Utils::formatMoney($invoice->balance, $invoice->currency_id ?: ($company->currency_id ?: DEFAULT_CURRENCY)) }}</td>
+                                        <td>&nbsp;</td>
                                 </tr>
                             @endif
                         @endforeach
@@ -232,7 +214,7 @@
                                         <td>{!! \App\Models\Invoice::calcLink($invoice) !!}</td>
                                         <td>{!! link_to('/relations/'.$invoice->relation_public_id, trim($invoice->relation_name) ?: (trim($invoice->first_name . ' ' . $invoice->last_name) ?: $invoice->email)) !!}</td>
                                         <td>{{ Utils::fromSqlDate($invoice->due_date) }}</td>
-                                        <td>{{ Utils::formatMoney($invoice->balance, $invoice->currency_id ?: ($company->currency_id ?: DEFAULT_CURRENCY)) }}</td>
+                                        <td>&nbsp;</td>
                                     </tr>
                                 @endif
                             @endforeach
@@ -263,7 +245,7 @@
                                         <td>{!! \App\Models\Invoice::calcLink($invoice) !!}</td>
                                         <td>{!! link_to('/relations/'.$invoice->relation_public_id, trim($invoice->relation_name) ?: (trim($invoice->first_name . ' ' . $invoice->last_name) ?: $invoice->email)) !!}</td>
                                         <td>{{ Utils::fromSqlDate($invoice->due_date) }}</td>
-                                        <td>{{ Utils::formatMoney($invoice->balance, $invoice->currency_id ?: ($company->currency_id ?: DEFAULT_CURRENCY)) }}</td>
+                                        <td>&nbsp;</td>
                                     </tr>
                                 @endif
                             @endforeach

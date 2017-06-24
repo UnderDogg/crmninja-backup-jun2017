@@ -42,6 +42,7 @@
     38 => 'App\\Providers\\RouteServiceProvider',
     39 => 'Barryvdh\\LaravelIdeHelper\\IdeHelperServiceProvider',
     40 => 'Davibennun\\LaravelPushNotification\\LaravelPushNotificationServiceProvider',
+    41 => 'Teepluss\\Theme\\ThemeServiceProvider',
   ),
   'eager' => 
   array (
@@ -69,6 +70,7 @@
     21 => 'App\\Providers\\EventServiceProvider',
     22 => 'App\\Providers\\RouteServiceProvider',
     23 => 'Davibennun\\LaravelPushNotification\\LaravelPushNotificationServiceProvider',
+    24 => 'Teepluss\\Theme\\ThemeServiceProvider',
   ),
   'deferred' => 
   array (

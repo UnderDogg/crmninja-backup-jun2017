@@ -4,6 +4,20 @@ use App\Libraries\Utils;
 
 return [
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Name
+    |--------------------------------------------------------------------------
+    |
+    | This value is the name of your application. This value is used when the
+    | framework needs to place the application's name in a notification or
+    | any other location as required by the application or its packages.
+    */
+
+    'name' => 'Laravel',
+
+
     /*
     |--------------------------------------------------------------------------
     | Application Debug Mode
@@ -14,8 +28,18 @@ return [
     | application. If disabled, a simple generic error page is shown.
     |
     */
-
     'debug' => env('APP_DEBUG', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Application Environment
+    |--------------------------------------------------------------------------
+    |
+    | This value determines the "environment" your application is currently
+    | running in. This may determine how you prefer to configure various
+    | services your application utilizes. Set this in your ".env" file.
+    |
+    */
 
     'env' => env('APP_ENV', 'production'),
 
@@ -99,7 +123,9 @@ return [
     |
     */
 
-    'log' => env('LOG', 'single'),
+    'log' => env('APP_LOG', 'single'),
+
+    'log_level' => env('APP_LOG_LEVEL', 'debug'),
 
     /*
     |--------------------------------------------------------------------------
@@ -163,11 +189,12 @@ return [
         'App\Providers\AppServiceProvider',
         'App\Providers\ComposerServiceProvider',
         'App\Providers\ConfigServiceProvider',
-        'App\Providers\EventServiceProvider',
+        App\Providers\EventServiceProvider::class,
         'App\Providers\RouteServiceProvider',
 
         'Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider',
         'Davibennun\LaravelPushNotification\LaravelPushNotificationServiceProvider',
+        Teepluss\Theme\ThemeServiceProvider::class,
     ],
 
     /*
@@ -183,41 +210,47 @@ return [
 
     'aliases' => [
 
-        'App' => 'Illuminate\Support\Facades\App',
-        'Artisan' => 'Illuminate\Support\Facades\Artisan',
-        'Auth' => 'Illuminate\Support\Facades\Auth',
-        'Blade' => 'Illuminate\Support\Facades\Blade',
-        'Cache' => 'Illuminate\Support\Facades\Cache',
+        'App' => Illuminate\Support\Facades\App::class,
+        'Artisan' => Illuminate\Support\Facades\Artisan::class,
+        'Auth' => Illuminate\Support\Facades\Auth::class,
+        'Blade' => Illuminate\Support\Facades\Blade::class,
+        'Cache' => Illuminate\Support\Facades\Cache::class,
+
         'ClassLoader' => 'Illuminate\Support\ClassLoader',
-        'Config' => 'Illuminate\Support\Facades\Config',
+
+        'Config' => Illuminate\Support\Facades\Config::class,
+
         'Controller' => 'Illuminate\Routing\Controller',
-        'Cookie' => 'Illuminate\Support\Facades\Cookie',
-        'Crypt' => 'Illuminate\Support\Facades\Crypt',
-        'DB' => 'Illuminate\Support\Facades\DB',
-        'Eloquent' => 'Illuminate\Database\Eloquent\Model',
-        'Event' => 'Illuminate\Support\Facades\Event',
-        'File' => 'Illuminate\Support\Facades\File',
-        'Gate' => 'Illuminate\Support\Facades\Gate',
-        'Hash' => 'Illuminate\Support\Facades\Hash',
+
+        'Cookie' => Illuminate\Support\Facades\Cookie::class,
+        'Crypt' => Illuminate\Support\Facades\Crypt::class,
+        'DB' => Illuminate\Support\Facades\DB::class,
+        'Eloquent' => Illuminate\Database\Eloquent\Model::class,
+        'Event' => Illuminate\Support\Facades\Event::class,
+        'File' => Illuminate\Support\Facades\File::class,
+        'Gate' => Illuminate\Support\Facades\Gate::class,
+        'Hash' => Illuminate\Support\Facades\Hash::class,
+
         'Input' => 'Illuminate\Support\Facades\Input',
-        'Lang' => 'Illuminate\Support\Facades\Lang',
-        'Log' => 'Illuminate\Support\Facades\Log',
-        'Mail' => 'Illuminate\Support\Facades\Mail',
-        'Password' => 'Illuminate\Support\Facades\Password',
-        'Queue' => 'Illuminate\Support\Facades\Queue',
-        'Redirect' => 'Illuminate\Support\Facades\Redirect',
-        'Redis' => 'Illuminate\Support\Facades\Redis',
-        'Request' => 'Illuminate\Support\Facades\Request',
-        'Response' => 'Illuminate\Support\Facades\Response',
-        'Route' => 'Illuminate\Support\Facades\Route',
-        'Schema' => 'Illuminate\Support\Facades\Schema',
-        'Seeder' => 'Illuminate\Database\Seeder',
-        'Session' => 'Illuminate\Support\Facades\Session',
+
+        'Lang' => Illuminate\Support\Facades\Lang::class,
+        'Log' => Illuminate\Support\Facades\Log::class,
+        'Mail' => Illuminate\Support\Facades\Mail::class,
+        'Password' => Illuminate\Support\Facades\Password::class,
+        'Queue' => Illuminate\Support\Facades\Queue::class,
+        'Redirect' => Illuminate\Support\Facades\Redirect::class,
+        'Redis' => Illuminate\Support\Facades\Redis::class,
+        'Request' => Illuminate\Support\Facades\Request::class,
+        'Response' => Illuminate\Support\Facades\Response::class,
+        'Route' => Illuminate\Support\Facades\Route::class,
+        'Schema' => Illuminate\Support\Facades\Schema::class,
+        'Session' => Illuminate\Support\Facades\Session::class,
+        'Storage' => Illuminate\Support\Facades\Storage::class,
         'Storage' => 'Illuminate\Support\Facades\Storage',
         'Str' => 'Illuminate\Support\Str',
-        'URL' => 'Illuminate\Support\Facades\URL',
-        'Validator' => 'Illuminate\Support\Facades\Validator',
-        'View' => 'Illuminate\Support\Facades\View',
+        'URL' => Illuminate\Support\Facades\URL::class,
+        'Validator' => Illuminate\Support\Facades\Validator::class,
+        'View' => Illuminate\Support\Facades\View::class,
 
         // Added Class Aliases
         'Utils' => 'App\Libraries\Utils',
@@ -262,6 +295,8 @@ return [
 
 
         'PushNotification' => 'Davibennun\LaravelPushNotification\Facades\PushNotification',
+        //'Theme' => igaster\laravelTheme\Facades\Theme::class,
+        'Theme' => Teepluss\Theme\Facades\Theme::class,
 
     ],
 
